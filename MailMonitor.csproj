@@ -11,4 +11,16 @@
     <PackageReference Include="S22.Imap.Core" Version="3.6.1" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Remove="Tests\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Remove="Tests\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="Tests\**" />
+  </ItemGroup>
+
 </Project>
