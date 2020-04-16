@@ -6,7 +6,7 @@ namespace MailMonitor.Tests
     public class EmailSettingsTests
     {
         [Test]
-        public void EmailSettings_Constructor_()
+        public void EmailSettings_Constructor_Success()
         {
             
         }

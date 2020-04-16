@@ -1,36 +1,75 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Newtonsoft.Json;
 
 namespace MailMonitor
 {
     public class EmailSettings
     {
         public string Login { get; }
+        
         public string Password { get; }
+        
         public string Server { get; }
+        
         public int Port { get; }
+        
+        public bool UseSSL { get; }
+        
+        public int Timeout { get; }
+        
         public List<MonitoringSettings> MonitoringSettingsList { get; }
 
-        public EmailSettings(string login, string password, string server, int port)
+        [JsonConstructor]
+        private EmailSettings(string login, string password, string server, int port, bool useSSL, int timeout, List<MonitoringSettings> monitoringSettingsList)
         {
-            if (!LoginValidated(login))
+            if (monitoringSettingsList == null || monitoringSettingsList.Count <= 0)
             {
-                throw new IncorrectLoginException("Некорректное имя учетной записи.");
+                throw new SettingsListEmpty($"Список настроек для логина {login} пуст.");
             }
-
+            
+            if (string.IsNullOrEmpty(login.Trim()))
+            {
+                throw new ArgumentNullException(nameof(login), "В файле настроек не указан адрес почтового ящика.");
+            }
+            
+            if (string.IsNullOrEmpty(password.Trim()))
+            {
+                throw new ArgumentNullException(nameof(password), $"Пароль для учетной записи {login} не может быть пустым.");
+            }
+            
+            if (string.IsNullOrEmpty(server.Trim()))
+            {
+                throw new ArgumentNullException(nameof(server), "В файле настроек не указан адрес почтового сервера.");
+            }
+            
+            MonitoringSettingsList = monitoringSettingsList;
             Login = login;
             Password = password;
             Server = server;
-            Port = port;
-            
-            MonitoringSettingsList.Add(new MonitoringSettings("test", true, false, false, true));
-            MonitoringSettingsList.Add(new MonitoringSettings("test2", false, true, false, false));
+            Port = port == 0 ? 993 : port;
+            UseSSL = useSSL;
+            Timeout = timeout == 0 ? 120000 : timeout;
         }
 
-        private static bool LoginValidated(string login)
+        public static EmailSettings CreateSample()
         {
-            return (login.Count(x => x == '@') == 1 && login.Count(x => x == '.') > 0);
+            var defaultMonitoringSettingsList = new List<MonitoringSettings>
+            {
+                MonitoringSettings.CreateSample()
+            };
+            
+            var defaultEmailSettings = new EmailSettings(
+                "login@server", 
+                "password", 
+                "server", 
+                999, 
+                false,
+                999, 
+                defaultMonitoringSettingsList);
+            
+            return defaultEmailSettings;
         }
     }
 }
