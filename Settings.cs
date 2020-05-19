@@ -19,7 +19,7 @@ namespace MailMonitor
         {
             if (emailSettingsList == null || emailSettingsList.Count <= 0)
             {
-                throw new SettingsListEmpty($"Список настроек в файле {SettingsFilename} пуст.");
+                throw new SettingsListEmptyException($"Список настроек в файле {SettingsFilename} пуст.");
             }
            
             EmailSettingsList = emailSettingsList;
@@ -54,7 +54,7 @@ namespace MailMonitor
                     return false;
                 }
             }
-            catch (SettingsListEmpty ex)
+            catch (SettingsListEmptyException ex)
             {
                 Console.WriteLine(ex.Message);
                 return false;

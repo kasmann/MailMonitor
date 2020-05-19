@@ -31,11 +31,11 @@ namespace MailMonitor
             }
         }
 
-        public void Start(int maxConcurrent = 1)
+        public void Start()
         {
             if (IsRunning)
             {
-                throw new JobExecutorStarted("\nМониторинг уже запущен!");
+                throw new JobExecutorStartedException("\nМониторинг уже запущен!");
             }
 
             IsRunning = true;
@@ -48,7 +48,7 @@ namespace MailMonitor
         {
             if (!IsRunning)
             {
-                throw new JobExecutorStopped("\nМониторинг остановлен или не был начат.");
+                throw new JobExecutorStoppedException("\nМониторинг остановлен или не был начат.");
             }
 
             IsRunning = false;

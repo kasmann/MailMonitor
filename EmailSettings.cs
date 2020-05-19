@@ -26,7 +26,7 @@ namespace MailMonitor
         {
             if (monitoringSettingsList == null || monitoringSettingsList.Count <= 0)
             {
-                throw new SettingsListEmpty($"Список настроек для логина {login} пуст.");
+                throw new SettingsListEmptyException($"Список настроек для логина {login} пуст.");
             }
             
             if (string.IsNullOrEmpty(login.Trim()))

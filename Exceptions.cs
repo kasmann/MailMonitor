@@ -7,19 +7,19 @@ namespace MailMonitor
         public SettingsFileEmptyOrNotFoundException(string message) : base(message) { }
     }
 
-    public class SettingsListEmpty : Exception
+    public class SettingsListEmptyException : Exception
     {
-        public SettingsListEmpty(string message) : base(message) { }
+        public SettingsListEmptyException(string message) : base(message) { }
     }
 
-    public class JobExecutorStopped : Exception
+    public class JobExecutorStoppedException : Exception
     {
-        public JobExecutorStopped(string message) : base(message) { }
+        public JobExecutorStoppedException(string message) : base(message) { }
     }
 
-    public class JobExecutorStarted : Exception
+    public class JobExecutorStartedException : Exception
     {
-        public JobExecutorStarted(string message) : base(message) { }
+        public JobExecutorStartedException(string message) : base(message) { }
     }
 
 }
