@@ -1,22 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using Newtonsoft.Json;
 
 namespace MailMonitor
 {
     public class EmailSettings
     {
-        public string Login { get; }
-        
-        public string Password { get; }
-        
-        public string Server { get; }
-        
-        public int Port { get; }
-        
-        public bool UseSSL { get; }
-        
+        public string Login { get; }        
+        public string Password { get; }        
+        public string Server { get; }        
+        public int Port { get; }        
+        public bool UseSSL { get; }        
         public int Timeout { get; }
         
         public List<MonitoringSettings> MonitoringSettingsList { get; }
@@ -26,7 +20,7 @@ namespace MailMonitor
         {
             if (monitoringSettingsList == null || monitoringSettingsList.Count <= 0)
             {
-                throw new SettingsListEmpty($"Список настроек для логина {login} пуст.");
+                throw new SettingsListEmptyException($"Список настроек для логина {login} пуст.");
             }
             
             if (string.IsNullOrEmpty(login.Trim()))

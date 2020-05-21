@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 
 namespace MailMonitor
@@ -15,15 +13,7 @@ namespace MailMonitor
         public string ForwardTo { get; }
         public bool Print { get; }
         
-        private EmailPartEnum _emailPartEnum;
-        private enum EmailPartEnum
-        {
-            Title = 1,
-            To = 2,
-            From = 3,
-            Body = 4
-        }
-        
+        private readonly EmailPartEnum _emailPartEnum;        
 
         [JsonConstructor]
         public MonitoringSettings(string condition, string emailPart, bool notify = false, bool copyTo = false, bool forward = false, string forwardTo = null, bool print = false)

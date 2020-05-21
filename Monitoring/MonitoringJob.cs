@@ -1,16 +1,15 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Mail;
-using System.Text.RegularExpressions;
+using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using S22.Imap;
 
 namespace MailMonitor
 {
-    public class MonitoringJob : IDisposable
+    public partial class MonitoringJob : IDisposable
     {
         private ImapClient _imapClient;
         private readonly string _login;
@@ -72,6 +71,11 @@ namespace MailMonitor
                 Console.WriteLine($"Не удалось установить соединение.\n{ex.Message}");
                 return false;
             }
+            catch (SocketException ex)
+            {
+                Console.WriteLine($"Ошибка сокета {ex.SocketErrorCode}.\n{ex.Message}");
+                return false;
+            }
             return true;
         }
 
@@ -104,9 +108,11 @@ namespace MailMonitor
         }
         
         private void StartNonIdleMonitoring()
-        { 
-            _nonIdleMonitoringThread = new Thread(_ => Monitor());
-            _nonIdleMonitoringThread.IsBackground = true;
+        {
+            _nonIdleMonitoringThread = new Thread(_ => Monitor())
+            {
+                IsBackground = true
+            };
             _nonIdleMonitoringThread.Start();
         }
 
@@ -142,76 +148,18 @@ namespace MailMonitor
             }
         }
 
-        private class MessageProcessor
-        {
-            private readonly string _login;
-            private readonly MailMessage _message;
-            private readonly IEnumerable<MonitoringSettings> _monitoringSettingsList;
-
-            public MessageProcessor(string login, MailMessage message, IEnumerable<MonitoringSettings> monitoringSettingsList)
-            {
-                _login = login;
-                _message = message;
-                _monitoringSettingsList = monitoringSettingsList;
-            }
-
-            public void StartProcessing()
-            {
-                foreach (var monitoringSetting in _monitoringSettingsList)
-                {
-                    var inspectingPart = monitoringSetting.EmailPart switch
-                    {
-                        "body" => _message.Body,
-                        "title" => _message.Subject,
-                        "from" => _message.From.Address,
-                        "to" => _message.To,
-                        _ => new object()
-                    };
-
-                    if (inspectingPart is string inspectingString)
-                    {
-                        if (!Regex.IsMatch(inspectingString, monitoringSetting.Condition)) return;
-                    }
-                    else if (inspectingPart is MailAddressCollection receivers)
-                    {
-                        if (receivers.Any(receiver =>
-                            !Regex.IsMatch(receiver.Address, monitoringSetting.Condition))) return;
-                    }
-                    
-                    if (monitoringSetting.Notify) Notify();
-                    if (monitoringSetting.CopyTo) CopyTo();
-                    if (monitoringSetting.Forward) Forward(monitoringSetting.ForwardTo);
-                    if (monitoringSetting.Print) Print();
-                }
-            }
-
-            private void Print()
-            {
-                Console.WriteLine($"Учетная запись {_login}. Получено 1 новое сообщение. Письмо отправлено на печать.");
-            }
-
-            private void Forward(string forwardTo)
-            {
-                Console.WriteLine($"Учетная запись {_login}. Получено 1 новое письмо. Письмо перенаправлено адресату {forwardTo}.");
-            }
-
-            private void CopyTo()
-            {
-                Console.WriteLine($"Учетная запись {_login}. Получено 1 новое письмо. Письмо скопировано в локальную папку.");
-            }
-
-            private void Notify()
-            {
-                Console.WriteLine($"Учетная запись {_login}. Получено 1 новое сообщение. Оповещение.");
-            }
-        }
-
         public void Dispose()
         {
-            _nonIdleMonitoringThread.Abort();
-            _nonIdleMonitoringThread.Join();
-            
-            Task.WaitAll(_messageProcessingTasks.ToArray());
+            if (!(_nonIdleMonitoringThread is null))
+            {
+                _nonIdleMonitoringThread.Abort();
+                _nonIdleMonitoringThread.Join();
+            }
+
+            if (_messageProcessingTasks.Count > 0)
+            {
+                Task.WaitAll(_messageProcessingTasks.ToArray());
+            }
             
             _imapClient.Logout();
             _imapClient.Dispose();
