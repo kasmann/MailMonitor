@@ -11,25 +11,12 @@ namespace MailMonitor
         public bool IsRunning { get; private set; }
         private readonly object _locker = new object();
         private Task _task;
-        private readonly Queue<Action> _queue = new Queue<Action>();
+        private readonly ActionQueue _queue;
 
-        public MonitoringJobExecutor(IEnumerable<Action> actionList)
+        public MonitoringJobExecutor(ActionQueue queue)
         {
-            foreach (var action in actionList)
-            {
-                Add(action);
-            }
-        }
-
-        private void Add(Action action)
-        {
-            if (action == null) return;
-            
-            lock (_locker)
-            {
-                _queue.Enqueue(action);
-            }
-        }
+            if (queue.Count > 0) _queue = queue;
+        }        
 
         public void Start()
         {
