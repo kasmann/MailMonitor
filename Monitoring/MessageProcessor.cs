@@ -12,12 +12,14 @@ namespace MailMonitor
             private readonly string _login;
             private readonly MailMessage _message;
             private readonly IEnumerable<MonitoringSettings> _monitoringSettingsList;
+            private readonly IProcessingActionsManager _actionsManager;
 
-            public MessageProcessor(string login, MailMessage message, IEnumerable<MonitoringSettings> monitoringSettingsList)
+            public MessageProcessor(string login, MailMessage message, IEnumerable<MonitoringSettings> monitoringSettingsList, IProcessingActionsManager actionsManager)
             {
                 _login = login;
                 _message = message;
                 _monitoringSettingsList = monitoringSettingsList;
+                _actionsManager = actionsManager;
             }
 
             public void StartProcessing()
@@ -42,11 +44,12 @@ namespace MailMonitor
                         if (receivers.Any(receiver =>
                             !Regex.IsMatch(receiver.Address, monitoringSetting.Condition))) return;
                     }
+                  
                     
-                    if (monitoringSetting.Notify) MessageActions.Notify(_login);
-                    if (monitoringSetting.CopyTo) MessageActions.CopyTo(_login, @"d:\incoming\");
-                    if (monitoringSetting.Forward) MessageActions.Forward(_login, monitoringSetting.ForwardTo);
-                    if (monitoringSetting.Print) MessageActions.Print(_login);
+                    if (monitoringSetting.Notify) _actionsManager.Notify(_login);
+                    if (monitoringSetting.CopyTo) _actionsManager.CopyTo(_login, @"d:\incoming\");
+                    if (monitoringSetting.Forward) _actionsManager.Forward(_login, monitoringSetting.ForwardTo);
+                    if (monitoringSetting.Print) _actionsManager.Print(_login);
                 }
             }            
         }

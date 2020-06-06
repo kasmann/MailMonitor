@@ -1,7 +1,6 @@
-﻿using Newtonsoft.Json;
-using System;
+﻿using System;
 using System.IO;
-using System.Linq;
+using Newtonsoft.Json;
 
 namespace MailMonitor
 {
@@ -11,56 +10,65 @@ namespace MailMonitor
 
         private static void Main(string[] args)
         {
-            string settingsFileFullPath = DefineFullPath(args);            
+            var settings = new ProgramSettings();
+            var manager = new ProgramSettingsManager();
 
-            ProgramSettings settings = LoadSettings(settingsFileFullPath);
+            manager.ParseCommandLine(settings, args);
 
-            if (settings is null)
+            if (!LoadSettings(manager, settings))
             {
-                ProgramSettingsManager.CreateSampleSettingsFile(settingsFileFullPath);
+                manager.CreateSampleSettingsFile(settings.settingsFileFullPath);
                 return;
             }
 
-            ActionQueue actionQueue = new ActionQueue();
-            foreach (var setting in settings.EmailSettingsList)
+            IActionQueue actionQueue = new ActionQueue();
+            _monitoringJobExecutor = new MonitoringJobExecutor(actionQueue);
+            
+            var actionsCount = settings.EmailSettingsList.Count;
+            var maxConcurrent = settings.maxConcurrent == 0 ? actionsCount : settings.maxConcurrent;
+            _monitoringJobExecutor.Start(maxConcurrent);
+
+            IProcessingActionsManager processingActionsManager;
+            
+            if (settings.log == "file")
             {
-                var monitoringJob = new MonitoringJob(setting);
-                actionQueue.Add(monitoringJob.StartMonitoring);
+                try
+                {
+                    processingActionsManager = new LogfileProcessingActionsManager(settings.logFileFullPath);
+                }
+                //допустимо ли так отлавливать все исключения, выбрасываемые моим же методом, если их обработка - это только вывод сообщения в консоль?
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex.Message);
+                    return;
+                }
+            }
+            else
+            {
+                processingActionsManager = new ConsoleProcessingActionsManager();
             }
 
-            _monitoringJobExecutor = new MonitoringJobExecutor(actionQueue);
-            _monitoringJobExecutor.Start();
+            foreach (var setting in settings.EmailSettingsList)
+            {
+                var monitoringJob = new MonitoringJob(setting, processingActionsManager);
+                actionQueue.Enqueue(monitoringJob.StartMonitoring);
+            }
 
             while (_monitoringJobExecutor.IsRunning)
             {
-                //прекращение работы по нажатию любой клавиши в консоли
                 if (Console.ReadKey() != default)
                     _monitoringJobExecutor.Stop();
             }
+
+            //Console.ReadKey();
         }           
 
-        private static string DefineFullPath(string[] args)
+        private static bool LoadSettings(ProgramSettingsManager manager, ProgramSettings settings)
         {
-            string commandLineArg = "";
-            foreach (var arg in args.Where(arg => arg.Contains(".json")))
-            {
-                commandLineArg = arg;
-            }
-
-            string settingsFileFullPath = string.IsNullOrEmpty(commandLineArg)
-                ? Properties.Resources.ResourceManager.GetString("SettingsFilename")
-                : commandLineArg;
-
-            return settingsFileFullPath;
-        }
-
-        public static ProgramSettings LoadSettings(string settingsFileFullPath)
-        {
-            ProgramSettings settings = null;
-
             try
             {
-                settings = ProgramSettingsManager.LoadSettings(settingsFileFullPath);
+                manager.LoadSettings(settings);
+                return true;
             }
             catch (SettingsFileEmptyOrNotFoundException ex)
             {
@@ -74,12 +82,12 @@ namespace MailMonitor
             {
                 Console.WriteLine($"Возникла ошибка при чтении файла настроек.\n{ex.Message}\n{ex.ParamName}");
             }
-            catch (JsonReaderException ex)
-            {                
+            catch (JsonReaderException)
+            {
                 Console.WriteLine("Файл настроек имеет некорректную структуру.");
             }
             catch (IOException)
-            {                
+            {
                 Console.WriteLine("Ошибка чтения файла настроек.");
             }
             catch (UnauthorizedAccessException)
@@ -87,8 +95,7 @@ namespace MailMonitor
                 Console.WriteLine("Недостаточно прав для доступа к файлу настроек.");
             }
 
-            return settings;
+            return false;
         }
-        
     }
 }

@@ -5,10 +5,16 @@ namespace MailMonitor
 {
     public class ProgramSettings
     {
-        public List<EmailSettings> EmailSettingsList { get; }
+        [JsonIgnore] public string settingsFileFullPath { get; set; }
+        [JsonIgnore] public int maxConcurrent { get; set; }
+        [JsonIgnore] public string log { get; set; }
+        [JsonIgnore] public string logFileFullPath { get; set; }
+        public IList<EmailSettings> EmailSettingsList { get; set; }
+
+        public ProgramSettings() {}
 
         [JsonConstructor]
-        public ProgramSettings(List<EmailSettings> emailSettingsList)
+        public ProgramSettings(IList<EmailSettings> emailSettingsList)
         {
             if (emailSettingsList == null || emailSettingsList.Count <= 0)
             {

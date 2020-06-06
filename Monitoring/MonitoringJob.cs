@@ -19,10 +19,11 @@ namespace MailMonitor
         private readonly bool _useSsl;
         private readonly int _timeout;
         private readonly List<MonitoringSettings> _monitoringSettingsList;
-        private Thread _nonIdleMonitoringThread;
         private readonly List<Task> _messageProcessingTasks;
+        private readonly IProcessingActionsManager _actionsManager;
+        private CancellationTokenSource _cts;
 
-        public MonitoringJob(EmailSettings emailSettings)
+        public MonitoringJob(EmailSettings emailSettings, IProcessingActionsManager actionsManager)
         {
             if (emailSettings == null) return;
             
@@ -34,14 +35,15 @@ namespace MailMonitor
             _timeout = emailSettings.Timeout;
             _monitoringSettingsList = emailSettings.MonitoringSettingsList;
             _messageProcessingTasks = new List<Task>();
+            _actionsManager = actionsManager;
         }
 
         public void StartMonitoring()
         {
-            if (ImapClientCreated()) Console.WriteLine($"\nУчетная запись {_login}. Клиент IMAP4 создан. Подключение успешно.");
+            if (ImapClientCreated()) Console.WriteLine($"Учетная запись {_login}. Клиент IMAP4 создан. Подключение успешно.\n");
             else return;
            
-            if (ImapClientLoggedIn()) Console.WriteLine($"\nУчетная запись {_login}. Авторизация прошла успешно.");
+            if (ImapClientLoggedIn()) Console.WriteLine($"Учетная запись {_login}. Авторизация прошла успешно.\n");
 
             if (_imapClient.Supports("IDLE"))
             {
@@ -109,16 +111,15 @@ namespace MailMonitor
         
         private void StartNonIdleMonitoring()
         {
-            _nonIdleMonitoringThread = new Thread(_ => Monitor())
-            {
-                IsBackground = true
-            };
-            _nonIdleMonitoringThread.Start();
+            _cts = new CancellationTokenSource();
+            ThreadPool.QueueUserWorkItem(Monitor, _cts.Token);
         }
 
-        private void Monitor()
+        private void Monitor(object obj)
         {
-            while (_imapClient.Authed)
+            var token = (CancellationToken) obj;
+                
+            while(!token.IsCancellationRequested)
             {
                 var uids = _imapClient.Search(SearchCondition.Unseen()).ToList();
                 if (uids.Count > 0) ProcessMessages(uids);
@@ -129,6 +130,7 @@ namespace MailMonitor
         private void ProcessMessages(IEnumerable<uint> uids)
         {
             object messages;
+            
             try
             {
                 messages = _imapClient.GetMessages(uids, FetchOptions.NoAttachments);
@@ -143,26 +145,23 @@ namespace MailMonitor
             
             foreach (var message in (IEnumerable<MailMessage>)messages)
             {
-                var messageProcessor = new MessageProcessor(_login, message, _monitoringSettingsList);
+                var messageProcessor = new MessageProcessor(_login, message, _monitoringSettingsList, _actionsManager);
                 messageProcessor.StartProcessing();
             }
         }
 
         public void Dispose()
         {
-            if (!(_nonIdleMonitoringThread is null))
-            {
-                _nonIdleMonitoringThread.Abort();
-                _nonIdleMonitoringThread.Join();
-            }
+            _cts.Cancel();
+            _cts?.Dispose();
 
             if (_messageProcessingTasks.Count > 0)
             {
                 Task.WaitAll(_messageProcessingTasks.ToArray());
             }
-            
+
             _imapClient.Logout();
-            _imapClient.Dispose();
+            _imapClient?.Dispose();
         }
     }
 }
