@@ -6,6 +6,8 @@ namespace MailMonitor
     public class MonitoringJobExecutor : IDisposable
     {
         public bool IsRunning { get; private set; }
+        public event EventHandler<MonitoringErrorEventArgs> OnErrorOccured;
+
         private readonly object _locker = new object();
         private readonly IActionQueue _queue;
         private EventWaitHandle _eventWaitHandle = new AutoResetEvent(false);
@@ -70,24 +72,42 @@ namespace MailMonitor
 
             if (action != null)
             {
-                ThreadPool.QueueUserWorkItem(
-                    _ =>
+                try
+                {
+                    ThreadPool.QueueUserWorkItem(
+                        _ =>
+                        {
+                            _semaphore.WaitOne();
+                            try
+                            {
+                                action.Invoke();
+                            }
+                            catch (Exception ex)
+                            {
+                                MonitoringErrorEventArgs margs = new MonitoringErrorEventArgs
+                                {
+                                    Message = "Возникла ошибка при исполнении метода",
+                                    Method = action.Method.Name,
+                                    ErrorMessage = ex.Message
+                                };
+                                OnErrorOccured?.Invoke(this, margs);
+                            }
+                            finally
+                            {
+                                _semaphore.Release();
+                            }
+                        });
+                }
+                catch(Exception ex)
+                {
+                    MonitoringErrorEventArgs margs = new MonitoringErrorEventArgs
                     {
-                        _semaphore.WaitOne();
-                        try
-                        {
-                            action.Invoke();
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine(
-                                $"Возникла ошибка при исполнении метода {action.Method}.\n{ex.Message}\n{ex}");
-                        }
-                        finally
-                        {
-                            _semaphore.Release();
-                        }
-                    });
+                        Message = "Не удалось поместить метод в очередь выполнения.",
+                        Method = action.Method.Name,
+                        ErrorMessage = ex.Message
+                    };
+                    OnErrorOccured?.Invoke(this, margs);
+                }
             }
         }
     }

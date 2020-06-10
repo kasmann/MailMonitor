@@ -59,8 +59,6 @@ namespace MailMonitor
                 if (Console.ReadKey() != default)
                     _monitoringJobExecutor.Stop();
             }
-
-            //Console.ReadKey();
         }           
 
         private static bool LoadSettings(ProgramSettingsManager manager, ProgramSettings settings)
