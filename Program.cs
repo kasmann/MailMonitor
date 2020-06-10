@@ -23,7 +23,9 @@ namespace MailMonitor
 
             IActionQueue actionQueue = new ActionQueue();
             _monitoringJobExecutor = new MonitoringJobExecutor(actionQueue);
-            
+            _monitoringJobExecutor.OnErrorOccured += OnErrorOccured;
+
+
             var actionsCount = settings.EmailSettingsList.Count;
             var maxConcurrent = settings.maxConcurrent == 0 ? actionsCount : settings.maxConcurrent;
             _monitoringJobExecutor.Start(maxConcurrent);
@@ -94,6 +96,13 @@ namespace MailMonitor
             }
 
             return false;
+        }
+
+        private static void OnErrorOccured(object obj, MonitoringErrorEventArgs args)
+        {
+            Console.WriteLine($"*****При выполнении задач мониторинга возникла ошибка: {args.Message}\n" +
+                $"Метод, вызвавший ошибку: {args.Method}\n" +
+                $"{args.ErrorMessage}");
         }
     }
 }
