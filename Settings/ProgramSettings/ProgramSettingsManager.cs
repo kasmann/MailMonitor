@@ -4,35 +4,68 @@ using System.Collections.Generic;
 using System.Linq;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Microsoft.Extensions.Logging;
 
 namespace MailMonitor
 {
     public class ProgramSettingsManager
     {
-        public void LoadSettings(ProgramSettings programSettings)
+        private readonly ILogger _logger;
+
+        public ProgramSettingsManager(ILogger logger)
         {
+            _logger = logger;
+        }
+
+        public bool LoadSettings(ProgramSettings programSettings)
+        {
+            _logger.LogInformation(programSettings.settingsFileFullPath);
+
             var settingsFileFullPath = programSettings.settingsFileFullPath;
-            if (!File.Exists(settingsFileFullPath))
-            {
-                throw new SettingsFileEmptyOrNotFoundException($"Файл настроек {settingsFileFullPath} не найден.");
-            }
 
-            var settingsJson = File.ReadAllText(settingsFileFullPath);
-
-            if (string.IsNullOrEmpty(settingsJson))
+            var validator = new JsonTextValidator();
+            var validationResult = validator.Validate(settingsFileFullPath);
+            if (!validationResult.IsValid)
             {
-                throw new SettingsFileEmptyOrNotFoundException($"Файл настроек {settingsFileFullPath} пуст.");
-            }
-
-            var jsonParsed = JObject.Parse(settingsJson).ToObject<ProgramSettings>();
-            if (jsonParsed != null)
-            {
-                programSettings.EmailSettingsList = jsonParsed.EmailSettingsList;
+                foreach (var failure in validationResult.Errors)
+                {
+                    _logger.LogError(failure.ErrorMessage);
+                }
+                return false;
             }
             else
             {
-                Console.WriteLine("incorrect json");
+                var settingsJson = File.ReadAllText(settingsFileFullPath);
+                var jsonParsed = JObject.Parse(settingsJson).ToObject<ProgramSettings>();
+                programSettings.EmailSettingsList = jsonParsed.EmailSettingsList;
+                return true;
             }
+
+            //var settingsFileFullPath = programSettings.settingsFileFullPath;
+            //if (!File.Exists(settingsFileFullPath))
+            //{
+            //    throw new SettingsFileEmptyOrNotFoundException($"Файл настроек {settingsFileFullPath} не найден.");
+            //}
+
+            //var settingsJson = File.ReadAllText(settingsFileFullPath);
+
+            ////validation
+            //if (string.IsNullOrEmpty(settingsJson))
+            //{
+            //    throw new SettingsFileEmptyOrNotFoundException($"Файл настроек {settingsFileFullPath} пуст.");
+            //}
+
+            //var jsonParsed = JObject.Parse(settingsJson).ToObject<ProgramSettings>();
+            //if (jsonParsed != null)
+            //{
+            //    programSettings.EmailSettingsList = jsonParsed.EmailSettingsList;
+            //}
+            //else
+            //{
+            //    _logger.LogError("Некорректный JSON-файл.");
+            //}
+
+
         }
 
         public void ParseCommandLine(ProgramSettings settings, string[] args)
@@ -89,24 +122,20 @@ namespace MailMonitor
             }
             catch (DirectoryNotFoundException)
             {
-                Console.WriteLine($"Директория файла настроек не найдена. Завершение программы.");
-            }
-            catch (PathTooLongException)
-            {
-                Console.WriteLine($"Путь к файлу настроек слишком длинный. Завершение программы.");
+                _logger.LogError($"Директория файла настроек не найдена. Завершение программы.");
             }
             catch (UnauthorizedAccessException uaException)
             {
-                Console.WriteLine(
+                _logger.LogError(
                     $"Недостаточно прав для создания файла настроек по умолчанию. Завершение программы.\n{uaException.Message}");
             }
             catch (IOException ioException)
             {
-                Console.WriteLine(
+                _logger.LogError(
                     $"Ошибка создания или записи файла настроек по умолчанию. Завершение программы.\n{ioException.Message}");
             }
 
-            Console.WriteLine("Создан образец файла настроек. Измените настройки и перезапустите программу.");
+            _logger.LogInformation("Создан образец файла настроек. Измените настройки и перезапустите программу.");
         }
     }
 }

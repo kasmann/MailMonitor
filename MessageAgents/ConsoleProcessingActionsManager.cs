@@ -1,29 +1,39 @@
-﻿using System;
+﻿using Microsoft.Extensions.Logging;
+using System;
 
 namespace MailMonitor
 {
     public class ConsoleProcessingActionsManager : IProcessingActionsManager
     {
+        private static ILoggerFactory _loggerFactory;
+        private static ILogger _logger;
+
+        public ConsoleProcessingActionsManager()
+        {
+            _loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
+            _logger = _loggerFactory.CreateLogger<Program>();
+        }
+
         public void Print(string login)
         {
-            Console.WriteLine($"Учетная запись {login}. Получено 1 новое сообщение. Письмо отправлено на печать.");
+            _logger.LogInformation($"Учетная запись {login}. Получено 1 новое сообщение. Письмо отправлено на печать.");
         }
 
         public void Forward(string login, string forwardTo)
         {
-            Console.WriteLine(
+            _logger.LogInformation(
                 $"Учетная запись {login}. Получено 1 новое письмо. Письмо перенаправлено адресату {forwardTo}.");
         }
 
         public void CopyTo(string login, string path)
         {
-            Console.WriteLine(
+            _logger.LogInformation(
                 $"Учетная запись {login}. Получено 1 новое письмо. Письмо скопировано в локальную папку {path}.");
         }
 
         public void Notify(string login)
         {
-            Console.WriteLine($"Учетная запись {login}. Получено 1 новое сообщение. Оповещение.");
+            _logger.LogInformation($"Учетная запись {login}. Получено 1 новое сообщение. Оповещение.");
         }
     }
 }

@@ -16,10 +16,6 @@ namespace MailMonitor
                 {
                     File.AppendAllText(logFilePath, "");
                 }
-                catch (PathTooLongException)
-                {
-                    throw new PathTooLongException("Путь к лог-файлу слишком длинный.");
-                }
                 catch (DirectoryNotFoundException)
                 {
                     throw new DirectoryNotFoundException("Папка, содержащая лог-файл, не найдена.\nЗавершение работы.");

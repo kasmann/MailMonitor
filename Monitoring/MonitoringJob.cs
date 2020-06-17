@@ -5,6 +5,7 @@ using System.Net.Mail;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using S22.Imap;
 
 namespace MailMonitor
@@ -22,8 +23,9 @@ namespace MailMonitor
         private readonly List<Task> _messageProcessingTasks;
         private readonly IProcessingActionsManager _actionsManager;
         private CancellationTokenSource _cts;
+        private readonly ILogger _logger;
 
-        public MonitoringJob(EmailSettings emailSettings, IProcessingActionsManager actionsManager)
+        public MonitoringJob(EmailSettings emailSettings, IProcessingActionsManager actionsManager, ILogger logger)
         {
             if (emailSettings == null) return;
             
@@ -36,14 +38,29 @@ namespace MailMonitor
             _monitoringSettingsList = emailSettings.MonitoringSettingsList;
             _messageProcessingTasks = new List<Task>();
             _actionsManager = actionsManager;
+            _logger = logger;
         }
 
         public void StartMonitoring()
         {
-            if (ImapClientCreated()) Console.WriteLine($"Учетная запись {_login}. Клиент IMAP4 создан. Подключение успешно.\n");
-            else return;
-           
-            if (ImapClientLoggedIn()) Console.WriteLine($"Учетная запись {_login}. Авторизация прошла успешно.\n");
+            if (ImapClientCreated())
+            {
+                _logger.LogInformation($"Учетная запись {_login}. Клиент IMAP4 создан. Подключение успешно.\n");
+            }
+            else
+            {
+                return;
+            }
+
+            if (ImapClientLoggedIn())
+            {
+                _logger.LogInformation($"Учетная запись {_login}. Авторизация прошла успешно.\n");
+            }
+            else 
+            {                 
+                return; 
+            }
+
 
             if (_imapClient.Supports("IDLE"))
             {
@@ -67,18 +84,18 @@ namespace MailMonitor
             try
             {
                 _imapClient = new ImapClient(_server, _port, _useSsl);
+                return true;
             }
             catch (BadServerResponseException ex)
             {
-                Console.WriteLine($"Не удалось установить соединение.\n{ex.Message}");
+                _logger.LogError($"Учетная запись { _login}. Не удалось установить соединение.\n{ex.Message}");
                 return false;
             }
             catch (SocketException ex)
             {
-                Console.WriteLine($"Ошибка сокета {ex.SocketErrorCode}.\n{ex.Message}");
+                _logger.LogError($"Учетная запись { _login}. Ошибка сокета {ex.SocketErrorCode}.\n{ex.Message}");
                 return false;
             }
-            return true;
         }
 
         private bool ImapClientLoggedIn()
@@ -89,7 +106,7 @@ namespace MailMonitor
             }
             catch (InvalidCredentialsException ex)
             {
-                Console.WriteLine($"Не удалось авторизоваться.\n{ex.Message}");
+                _logger.LogError($"Учетная запись { _login}. Не удалось авторизоваться.\n{ex.Message}");
                 return false;
             }
             return true;
@@ -137,7 +154,7 @@ namespace MailMonitor
             }
             catch (BadServerResponseException ex)
             {
-                Console.WriteLine($"Не удалось загрузить новые письма.\n{ex.Message}");
+                _logger.LogError($"Учетная запись { _login}. Не удалось загрузить новые письма.\n{ex.Message}");
                 return;
             }
 

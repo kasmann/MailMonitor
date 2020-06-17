@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.Extensions.Logging;
+using System;
 using System.Threading;
 
 namespace MailMonitor
@@ -13,9 +14,11 @@ namespace MailMonitor
         private EventWaitHandle _eventWaitHandle = new AutoResetEvent(false);
         private Semaphore _semaphore;
         private int _maxConcurrent;
+        private readonly ILogger _logger;
 
-        public MonitoringJobExecutor(IActionQueue queue)
+        public MonitoringJobExecutor(IActionQueue queue, ILogger logger)
         {
+            _logger = logger;
             _queue = queue;
             
             //не придумала, как безопасно обработать уже существующие в очереди задачи,
@@ -37,7 +40,7 @@ namespace MailMonitor
             _maxConcurrent = maxConcurrent;
             _semaphore = new Semaphore(_maxConcurrent, _maxConcurrent);
 
-            Console.WriteLine("Мониторинг запущен.\n");
+            _logger.LogInformation("Мониторинг запущен.\n");
         }
 
         public void Stop()
@@ -49,7 +52,7 @@ namespace MailMonitor
 
             IsRunning = false;
 
-            Console.WriteLine("Мониторинг остановлен.\n");
+            _logger.LogInformation("Мониторинг остановлен.\n");
         }
 
         public void Dispose()
