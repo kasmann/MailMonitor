@@ -1,7 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 
-namespace MailMonitor
+namespace MailMonitor.ActionQueue
 {
     public interface IActionQueue
     {

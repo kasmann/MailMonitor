@@ -1,4 +1,4 @@
-﻿namespace MailMonitor
+﻿namespace MailMonitor.MessageAgents
 {
     public interface IProcessingActionsManager
     {

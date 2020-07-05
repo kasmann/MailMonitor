@@ -2,8 +2,10 @@
 using System.Linq;
 using System.Net.Mail;
 using System.Text.RegularExpressions;
+using MailMonitor.MessageAgents;
+using MailMonitor.Settings.MonitoringSettings;
 
-namespace MailMonitor
+namespace MailMonitor.Monitoring
 {
     public partial class MonitoringJob
     {

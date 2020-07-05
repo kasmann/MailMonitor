@@ -1,22 +1,18 @@
 ﻿using System;
-using System.IO;
-using Newtonsoft.Json;
+using MailMonitor.ActionQueue;
+using MailMonitor.MessageAgents;
+using MailMonitor.Monitoring;
+using MailMonitor.Settings.ProgramSettings;
 using Microsoft.Extensions.Logging;
 
-namespace MailMonitor
+namespace MailMonitor.Program
 {
-    internal class Program
+    internal partial class Program
     {
         private static MonitoringJobExecutor _monitoringJobExecutor;
         private static ILoggerFactory _loggerFactory;
         private static ILogger _logger;
-
-        private static void Main(string[] args)
-        {            
-            Start(args);
-            Console.ReadKey();
-        }
-
+        
         private static void Start(string[] args)
         { 
             _loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
@@ -27,16 +23,16 @@ namespace MailMonitor
 
             manager.ParseCommandLine(settings, args);
 
-            if (!LoadSettings(manager, settings))
+            if (!manager.LoadSettings(settings, out var createSample) && createSample)
             {
-                manager.CreateSampleSettingsFile(settings.settingsFileFullPath);
+                manager.CreateSampleSettingsFile();
                 return;
             }
-
-            IActionQueue actionQueue = new ActionQueue();
+            
+            IActionQueue actionQueue = new ActionQueue.ActionQueue();
+            IActionQueue stopActionQueue = new ActionQueue.ActionQueue();
             _monitoringJobExecutor = new MonitoringJobExecutor(actionQueue, _logger);
             _monitoringJobExecutor.OnErrorOccured += OnErrorOccured;
-
 
             var actionsCount = settings.EmailSettingsList.Count;
             var maxConcurrent = settings.maxConcurrent == 0 ? actionsCount : settings.maxConcurrent;
@@ -60,57 +56,21 @@ namespace MailMonitor
             {
                 processingActionsManager = new ConsoleProcessingActionsManager();
             }
-
+            
             foreach (var setting in settings.EmailSettingsList)
             {
-                var monitoringJob = new MonitoringJob(setting, processingActionsManager, _logger);
+                var monitoringJob = new Monitoring.MonitoringJob(setting, processingActionsManager, _logger);
                 actionQueue.Enqueue(monitoringJob.StartMonitoring);
+                stopActionQueue.Enqueue(monitoringJob.Stop);
             }
 
             while (_monitoringJobExecutor.IsRunning)
             {
+                Console.WriteLine("stopping works");
                 if (Console.ReadKey() != default)
-                    _monitoringJobExecutor.Stop();
+                    _monitoringJobExecutor.Stop(stopActionQueue);
             }
         }           
-
-        private static bool LoadSettings(ProgramSettingsManager manager, ProgramSettings settings)
-        {
-            //try
-            //{
-            //    manager.LoadSettings(settings);
-            //    return true;
-            //}
-            //catch (SettingsFileEmptyOrNotFoundException ex)
-            //{
-            //    _logger.LogError(ex.Message);
-            //}
-            //catch (SettingsListEmptyException ex)
-            //{
-            //    _logger.LogError(ex.Message);
-            //}
-            //catch (ArgumentException ex)
-            //{
-            //    _logger.LogError($"Возникла ошибка при чтении файла настроек.\n{ex.Message}\n{ex.ParamName}");
-            //}
-            //catch (JsonReaderException)
-            //{
-            //    _logger.LogError("Файл настроек имеет некорректную структуру.");
-            //}
-            //catch (IOException)
-            //{
-            //    _logger.LogError("Ошибка чтения файла настроек.");
-            //}
-            //catch (UnauthorizedAccessException)
-            //{
-            //    _logger.LogError("Недостаточно прав для доступа к файлу настроек.");
-            //}
-
-            //Console.ReadKey();
-            //return false;
-
-            return manager.LoadSettings(settings);
-        }
 
         private static void OnErrorOccured(object obj, MonitoringErrorEventArgs args)
         {

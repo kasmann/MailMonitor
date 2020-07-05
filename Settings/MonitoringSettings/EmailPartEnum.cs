@@ -1,4 +1,4 @@
-﻿namespace MailMonitor
+﻿namespace MailMonitor.Settings.MonitoringSettings
 {
     public enum EmailPartEnum
     {

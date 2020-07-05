@@ -1,8 +1,7 @@
 ﻿using System;
 using System.IO;
-using System.Net;
 
-namespace MailMonitor
+namespace MailMonitor.MessageAgents
 {
     public class LogfileProcessingActionsManager : IProcessingActionsManager
     {

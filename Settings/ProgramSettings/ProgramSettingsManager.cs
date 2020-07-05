@@ -1,12 +1,12 @@
 ﻿using System;
-using System.IO;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
+using MailMonitor.Validators;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json.Linq;
 
-namespace MailMonitor
+namespace MailMonitor.Settings.ProgramSettings
 {
     public class ProgramSettingsManager
     {
@@ -17,14 +17,39 @@ namespace MailMonitor
             _logger = logger;
         }
 
-        public bool LoadSettings(ProgramSettings programSettings)
+        public bool LoadSettings(ProgramSettings programSettings, out bool createSample)
         {
-            _logger.LogInformation(programSettings.settingsFileFullPath);
-
+            createSample = false;
             var settingsFileFullPath = programSettings.settingsFileFullPath;
 
-            var validator = new JsonTextValidator();
-            var validationResult = validator.Validate(settingsFileFullPath);
+            var fileAvailabilityValidator = new SettingsFileAvailabilityValidator();
+            var validationResult = fileAvailabilityValidator.Validate(settingsFileFullPath);
+            
+            if (!validationResult.IsValid)
+            {
+                foreach (var failure in validationResult.Errors)
+                {
+                    _logger.LogError(failure.ErrorMessage);
+                }
+                createSample = true;
+                return false;
+            }
+            
+            var fileNotEmptyValidator = new FileNotEmptyValidator();
+            validationResult = fileNotEmptyValidator.Validate(settingsFileFullPath);
+            
+            if (!validationResult.IsValid)
+            {
+                foreach (var failure in validationResult.Errors)
+                {
+                    _logger.LogError(failure.ErrorMessage);
+                }
+                createSample = true;
+                return false;
+            }
+            
+            var jsonTextValidator = new JsonTextValidator();
+            validationResult = jsonTextValidator.Validate(settingsFileFullPath);
             if (!validationResult.IsValid)
             {
                 foreach (var failure in validationResult.Errors)
@@ -33,57 +58,37 @@ namespace MailMonitor
                 }
                 return false;
             }
-            else
+
+            var settingsJson = File.ReadAllText(settingsFileFullPath);
+            try
             {
-                var settingsJson = File.ReadAllText(settingsFileFullPath);
                 var jsonParsed = JObject.Parse(settingsJson).ToObject<ProgramSettings>();
                 programSettings.EmailSettingsList = jsonParsed.EmailSettingsList;
                 return true;
             }
-
-            //var settingsFileFullPath = programSettings.settingsFileFullPath;
-            //if (!File.Exists(settingsFileFullPath))
-            //{
-            //    throw new SettingsFileEmptyOrNotFoundException($"Файл настроек {settingsFileFullPath} не найден.");
-            //}
-
-            //var settingsJson = File.ReadAllText(settingsFileFullPath);
-
-            ////validation
-            //if (string.IsNullOrEmpty(settingsJson))
-            //{
-            //    throw new SettingsFileEmptyOrNotFoundException($"Файл настроек {settingsFileFullPath} пуст.");
-            //}
-
-            //var jsonParsed = JObject.Parse(settingsJson).ToObject<ProgramSettings>();
-            //if (jsonParsed != null)
-            //{
-            //    programSettings.EmailSettingsList = jsonParsed.EmailSettingsList;
-            //}
-            //else
-            //{
-            //    _logger.LogError("Некорректный JSON-файл.");
-            //}
-
-
+            catch (Exception ex)
+            {
+                _logger.LogError(ex.Message);
+                return false;
+            }
         }
 
         public void ParseCommandLine(ProgramSettings settings, string[] args)
         {
             var settingsArg = "";
-            foreach (var arg in args.Where(arg => arg.Contains("settings=")))
+            foreach (var arg in args.Where(arg => arg.ToLower().Contains("settings=")))
             {
                 settingsArg = arg.Substring(arg.IndexOf('=') + 1);
             }
 
-            var settingsFileFullPath = string.IsNullOrEmpty(settingsArg)
+            var settingsFileFullPath = (string.IsNullOrEmpty(settingsArg) || Path.GetInvalidPathChars().Any(settingsArg.Contains))
                 ? Properties.Resources.ResourceManager.GetString("SettingsFilename")
                 : settingsArg;
 
             settings.settingsFileFullPath = settingsFileFullPath;
 
             var concurrentArg = "";
-            foreach (var arg in args.Where(arg => arg.Contains("threads=") || arg.Contains("concurrent=")))
+            foreach (var arg in args.Where(arg => arg.ToLower().Contains("threads=") || arg.Contains("concurrent=")))
             {
                 concurrentArg = arg.Substring(arg.IndexOf('=') + 1);
             }
@@ -93,7 +98,7 @@ namespace MailMonitor
 
 
             var logFilePath = "";
-            foreach (var arg in args.Where(arg => arg.Contains("logfile=")))
+            foreach (var arg in args.Where(arg => arg.ToLower().Contains("logfile=")))
             {
                 logFilePath = arg.Substring(arg.IndexOf('=') + 1);
             }
@@ -107,35 +112,29 @@ namespace MailMonitor
             {
                 settings.log = "console";
             }
-
         }
 
-
-        public void CreateSampleSettingsFile(string settingsFileFullPath)
+        public void CreateSampleSettingsFile()
         {
-            var defaultEmailSettingsList = new List<EmailSettings> { EmailSettings.CreateSample() };
+            var defaultEmailSettingsList = new List<EmailSettings> {EmailSettings.CreateSample()};
             var defaultSettings = new ProgramSettings(defaultEmailSettingsList);
+            var defaultSettingsFilePath = Properties.Resources.ResourceManager.GetString("SettingsFilename");
 
-            try
+            var fileAvailabilityValidator = new SettingsFileAvailabilityValidator();
+            var validationResult = fileAvailabilityValidator.Validate(defaultSettingsFilePath);
+
+            if (!validationResult.IsValid)
             {
-                File.WriteAllText(settingsFileFullPath, JObject.FromObject(defaultSettings).ToString());
-            }
-            catch (DirectoryNotFoundException)
-            {
-                _logger.LogError($"Директория файла настроек не найдена. Завершение программы.");
-            }
-            catch (UnauthorizedAccessException uaException)
-            {
-                _logger.LogError(
-                    $"Недостаточно прав для создания файла настроек по умолчанию. Завершение программы.\n{uaException.Message}");
-            }
-            catch (IOException ioException)
-            {
-                _logger.LogError(
-                    $"Ошибка создания или записи файла настроек по умолчанию. Завершение программы.\n{ioException.Message}");
+                foreach (var failure in validationResult.Errors)
+                {
+                    _logger.LogError(failure.ErrorMessage);
+                }
             }
 
-            _logger.LogInformation("Создан образец файла настроек. Измените настройки и перезапустите программу.");
+            File.WriteAllText(defaultSettingsFilePath, JObject.FromObject(defaultSettings).ToString());
+            _logger.LogInformation(
+                $"Создан образец файла настроек {defaultSettingsFilePath}. Измените настройки и перезапустите программу.");
         }
+        
     }
 }

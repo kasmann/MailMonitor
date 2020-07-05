@@ -1,7 +1,7 @@
 ﻿using System;
 using Newtonsoft.Json;
 
-namespace MailMonitor
+namespace MailMonitor.Settings.MonitoringSettings
 {
     public class MonitoringSettings
     {

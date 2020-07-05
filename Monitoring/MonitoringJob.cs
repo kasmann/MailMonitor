@@ -5,12 +5,15 @@ using System.Net.Mail;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
+using MailMonitor.MessageAgents;
+using MailMonitor.Settings;
+using MailMonitor.Settings.MonitoringSettings;
 using Microsoft.Extensions.Logging;
 using S22.Imap;
 
-namespace MailMonitor
+namespace MailMonitor.Monitoring
 {
-    public partial class MonitoringJob : IDisposable
+    public partial class MonitoringJob
     {
         private ImapClient _imapClient;
         private readonly string _login;
@@ -22,13 +25,16 @@ namespace MailMonitor
         private readonly List<MonitoringSettings> _monitoringSettingsList;
         private readonly List<Task> _messageProcessingTasks;
         private readonly IProcessingActionsManager _actionsManager;
+
         private CancellationTokenSource _cts;
+
+        //private Task _nonIdleMonitoringTask;
         private readonly ILogger _logger;
 
         public MonitoringJob(EmailSettings emailSettings, IProcessingActionsManager actionsManager, ILogger logger)
         {
             if (emailSettings == null) return;
-            
+
             _login = emailSettings.Login;
             _password = emailSettings.Password;
             _server = emailSettings.Server;
@@ -56,9 +62,9 @@ namespace MailMonitor
             {
                 _logger.LogInformation($"Учетная запись {_login}. Авторизация прошла успешно.\n");
             }
-            else 
-            {                 
-                return; 
+            else
+            {
+                return;
             }
 
 
@@ -88,12 +94,12 @@ namespace MailMonitor
             }
             catch (BadServerResponseException ex)
             {
-                _logger.LogError($"Учетная запись { _login}. Не удалось установить соединение.\n{ex.Message}");
+                _logger.LogError($"Учетная запись {_login}. Не удалось установить соединение.\n{ex.Message}");
                 return false;
             }
             catch (SocketException ex)
             {
-                _logger.LogError($"Учетная запись { _login}. Ошибка сокета {ex.SocketErrorCode}.\n{ex.Message}");
+                _logger.LogError($"Учетная запись {_login}. Ошибка сокета {ex.SocketErrorCode}.\n{ex.Message}");
                 return false;
             }
         }
@@ -106,12 +112,13 @@ namespace MailMonitor
             }
             catch (InvalidCredentialsException ex)
             {
-                _logger.LogError($"Учетная запись { _login}. Не удалось авторизоваться.\n{ex.Message}");
+                _logger.LogError($"Учетная запись {_login}. Не удалось авторизоваться.\n{ex.Message}");
                 return false;
             }
+
             return true;
         }
-        
+
         private void StartIdling()
         {
             _imapClient.NewMessage += OnNewMessageReceived;
@@ -120,23 +127,19 @@ namespace MailMonitor
         private void OnNewMessageReceived(object obj, IdleMessageEventArgs args)
         {
             var uids = new List<uint> {args.MessageUID};
-            _messageProcessingTasks.Add(Task.Factory.StartNew(() =>
-            {
-                ProcessMessages(uids);
-            }));
-        }
-        
-        private void StartNonIdleMonitoring()
-        {
-            _cts = new CancellationTokenSource();
-            ThreadPool.QueueUserWorkItem(Monitor, _cts.Token);
+            _messageProcessingTasks.Add(Task.Factory.StartNew(() => { ProcessMessages(uids); }));
         }
 
-        private void Monitor(object obj)
+        private void StartNonIdleMonitoring()
         {
-            var token = (CancellationToken) obj;
-                
-            while(!token.IsCancellationRequested)
+            _cts = new CancellationTokenSource(); 
+            Task.Factory.StartNew(Monitor, _cts.Token, _cts.Token);
+        }
+
+        private void Monitor(object state)
+        {
+            var token = (CancellationToken) state;
+            while (!token.IsCancellationRequested)
             {
                 var uids = _imapClient.Search(SearchCondition.Unseen()).ToList();
                 if (uids.Count > 0) ProcessMessages(uids);
@@ -147,38 +150,35 @@ namespace MailMonitor
         private void ProcessMessages(IEnumerable<uint> uids)
         {
             object messages;
-            
+
             try
             {
                 messages = _imapClient.GetMessages(uids, FetchOptions.NoAttachments);
             }
             catch (BadServerResponseException ex)
             {
-                _logger.LogError($"Учетная запись { _login}. Не удалось загрузить новые письма.\n{ex.Message}");
+                _logger.LogError($"Учетная запись {_login}. Не удалось загрузить новые письма.\n{ex.Message}");
                 return;
             }
 
             if (messages == null) return;
-            
-            foreach (var message in (IEnumerable<MailMessage>)messages)
+
+            foreach (var message in (IEnumerable<MailMessage>) messages)
             {
                 var messageProcessor = new MessageProcessor(_login, message, _monitoringSettingsList, _actionsManager);
                 messageProcessor.StartProcessing();
             }
         }
 
-        public void Dispose()
+        public void Stop()
         {
-            _cts.Cancel();
+            _cts?.Cancel();
             _cts?.Dispose();
-
             if (_messageProcessingTasks.Count > 0)
             {
                 Task.WaitAll(_messageProcessingTasks.ToArray());
             }
-
             _imapClient.Logout();
-            _imapClient?.Dispose();
         }
     }
 }

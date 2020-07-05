@@ -1,24 +1,23 @@
 ﻿using System;
-using System.Collections.Generic;
+using System.Collections.Concurrent;
 
-namespace MailMonitor
+namespace MailMonitor.ActionQueue
 {
-    public class ActionQueue : Queue<Action>, IActionQueue
+    public class ActionQueue : ConcurrentQueue<Action>, IActionQueue
     {
         public event EventHandler OnActionAdded;
-        
-        private readonly object _locker = new object();
 
-        public new void Enqueue(Action action)
+        void IActionQueue.Enqueue(Action action)
         {
             if (action == null) return;
             
-            lock (_locker)
-            {
-                base.Enqueue(action);
-                OnActionAdded?.Invoke(this, EventArgs.Empty);
-            }
+            base.Enqueue(action);
+            OnActionAdded?.Invoke(this, EventArgs.Empty);
         }
 
+        Action IActionQueue.Dequeue()
+        {
+            return !TryDequeue(out var result) ? null : result;
+        }
     }
 }

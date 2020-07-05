@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using Newtonsoft.Json;
 
-namespace MailMonitor
+namespace MailMonitor.Settings
 {
     public class EmailSettings
     {
@@ -13,10 +13,10 @@ namespace MailMonitor
         public bool UseSSL { get; }        
         public int Timeout { get; }
         
-        public List<MonitoringSettings> MonitoringSettingsList { get; }
+        public List<MonitoringSettings.MonitoringSettings> MonitoringSettingsList { get; }
 
         [JsonConstructor]
-        private EmailSettings(string login, string password, string server, int port, bool useSSL, int timeout, List<MonitoringSettings> monitoringSettingsList)
+        private EmailSettings(string login, string password, string server, int port, bool useSSL, int timeout, List<MonitoringSettings.MonitoringSettings> monitoringSettingsList)
         {
             if (monitoringSettingsList == null || monitoringSettingsList.Count <= 0)
             {
@@ -49,9 +49,9 @@ namespace MailMonitor
 
         public static EmailSettings CreateSample()
         {
-            var defaultMonitoringSettingsList = new List<MonitoringSettings>
+            var defaultMonitoringSettingsList = new List<MonitoringSettings.MonitoringSettings>
             {
-                MonitoringSettings.CreateSample()
+                MonitoringSettings.MonitoringSettings.CreateSample()
             };
             
             var defaultEmailSettings = new EmailSettings(

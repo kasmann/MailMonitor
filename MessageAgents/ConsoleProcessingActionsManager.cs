@@ -1,7 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
-using System;
 
-namespace MailMonitor
+namespace MailMonitor.MessageAgents
 {
     public class ConsoleProcessingActionsManager : IProcessingActionsManager
     {
@@ -11,7 +10,7 @@ namespace MailMonitor
         public ConsoleProcessingActionsManager()
         {
             _loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
-            _logger = _loggerFactory.CreateLogger<Program>();
+            _logger = _loggerFactory.CreateLogger<Program.Program>();
         }
 
         public void Print(string login)

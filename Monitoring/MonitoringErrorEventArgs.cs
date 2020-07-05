@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace MailMonitor
+namespace MailMonitor.Monitoring
 {
 	public class MonitoringErrorEventArgs : EventArgs
 	{
