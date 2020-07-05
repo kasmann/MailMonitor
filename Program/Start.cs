@@ -66,7 +66,6 @@ namespace MailMonitor.Program
 
             while (_monitoringJobExecutor.IsRunning)
             {
-                Console.WriteLine("stopping works");
                 if (Console.ReadKey() != default)
                     _monitoringJobExecutor.Stop(stopActionQueue);
             }
